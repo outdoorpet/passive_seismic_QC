@@ -1,13 +1,14 @@
 
 import pyasdf
-from os.path import join, exists, basename
-import sys
+from os.path import join, exists
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
-from sqlalchemy import or_, and_
+from sqlalchemy import and_
 from obspy.core import Stream, UTCDateTime
+
+from anu_timing_QC import cross_correlate_pairs
 
 # =========================== User Input Required =========================== #
 
@@ -22,6 +23,9 @@ FDSNnetwork = '8B'
 
 # Service Interval time to check
 service_time = '2014-12-05T15:00:00'
+
+# Component to analyse
+comp = 'BHZ'
 
 # =========================================================================== #
 
@@ -52,6 +56,8 @@ sta_list = ds.waveforms.list()
 # Convert the service time into a UTCDateTime object and then convert to timestamp
 service_timestamp = UTCDateTime(service_time).timestamp
 
+# open up new obspy stream object
+st = Stream()
 
 # Iterate through stations in the ASDF file
 for _i, station_name in enumerate(sta_list):
@@ -76,14 +82,23 @@ for _i, station_name in enumerate(sta_list):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    # open up new obspy stream object
-    st = Stream()
-
     for matched_waveform in session.query(Waveforms). \
-            filter(or_(and_(Waveforms.starttime <= service_timestamp, service_timestamp < Waveforms.endtime),
-                       and_(service_timestamp <= Waveforms.starttime, Waveforms.starttime < qtime + 3600))):
+            filter(and_(Waveforms.starttime >= (service_timestamp-3*3600), Waveforms.starttime <= (service_timestamp+3*3600))):
+
+        # Use python condition to retrieve just the desired components
+        if not comp in str(matched_waveform.station_id):
+            continue
+
         # Now extract all matched waveforms, concatenate using Obspy and write to ASDF with associated event tag
         # Read in the HDF5 matched waveforms into obspy stream (merge them together)
-        print matched_waveform.full_id
 
+        # Open up the waveform into an obspy stream object
+        # (this will join to previous waveform if there are multiple mSQL matches)
+        st += sta_helper[matched_waveform.full_id]
 
+        # Merge the waveforms together, filling any gaps
+        st.merge()
+
+print st
+
+cross_correlate_pairs.accp()
