@@ -83,7 +83,7 @@ for _i, station_name in enumerate(sta_list):
     session = Session()
 
     for matched_waveform in session.query(Waveforms). \
-            filter(and_(Waveforms.starttime >= (service_timestamp-3*3600), Waveforms.starttime <= (service_timestamp+3*3600))):
+            filter(and_(Waveforms.starttime >= (service_timestamp-1*3600), Waveforms.starttime <= (service_timestamp+1*3600))):
 
         # Use python condition to retrieve just the desired components
         if not comp in str(matched_waveform.station_id):
@@ -93,12 +93,12 @@ for _i, station_name in enumerate(sta_list):
         # Read in the HDF5 matched waveforms into obspy stream (merge them together)
 
         # Open up the waveform into an obspy stream object
-        # (this will join to previous waveform if there are multiple mSQL matches)
+        # (this will join to previous waveform if there are multiple SQL matches)
         st += sta_helper[matched_waveform.full_id]
 
-        # Merge the waveforms together, filling any gaps
-        st.merge()
 
-print st
+# Merge the waveforms together, filling any gaps
+st.merge(method=1, fill_value=0)
+st.decimate(2)
 
-cross_correlate_pairs.accp()
+cross_correlate_pairs.accp(st)
