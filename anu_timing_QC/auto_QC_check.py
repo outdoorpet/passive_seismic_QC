@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
 from obspy.core import Stream, UTCDateTime
 
 from anu_timing_QC import cross_correlate_pairs
@@ -16,13 +16,13 @@ from anu_timing_QC import cross_correlate_pairs
 data_path = '/media/obsuser/seismic_data_1/'
 
 #IRIS Virtual Ntework name
-virt_net = '_GA_OBS'
+virt_net = '_GA_test'
 
 # FDSN network identifier (2 Characters)
-FDSNnetwork = '8B'
+FDSNnetwork = 'XX'
 
 # Service Interval time to check
-service_time = '2014-12-05T15:00:00'
+service_time = '2016-09-24T00:00:00'
 
 # Component to analyse
 comp = 'BHZ'
@@ -56,8 +56,9 @@ sta_list = ds.waveforms.list()
 # Convert the service time into a UTCDateTime object and then convert to timestamp
 service_timestamp = UTCDateTime(service_time).timestamp
 
-# open up new obspy stream object
-st = Stream()
+
+# open up new obspy stream object for data before service and data after service
+st_temp = Stream()
 
 # Iterate through stations in the ASDF file
 for _i, station_name in enumerate(sta_list):
@@ -83,7 +84,9 @@ for _i, station_name in enumerate(sta_list):
     session = Session()
 
     for matched_waveform in session.query(Waveforms). \
-            filter(and_(Waveforms.starttime >= (service_timestamp-1*3600), Waveforms.starttime <= (service_timestamp+1*3600))):
+            filter(or_(and_(Waveforms.starttime <= service_timestamp, service_timestamp < Waveforms.endtime),
+                       and_(service_timestamp <= Waveforms.starttime, Waveforms.starttime < service_timestamp + 2*3600),
+                       and_(service_timestamp >= Waveforms.starttime, Waveforms.endtime > service_timestamp - 2*3600))):
 
         # Use python condition to retrieve just the desired components
         if not comp in str(matched_waveform.station_id):
@@ -94,11 +97,45 @@ for _i, station_name in enumerate(sta_list):
 
         # Open up the waveform into an obspy stream object
         # (this will join to previous waveform if there are multiple SQL matches)
-        st += sta_helper[matched_waveform.full_id]
+        st_temp += sta_helper[matched_waveform.full_id]
 
 
+st_temp.merge()
+
+st_bef_ser = st_temp.copy().trim(UTCDateTime(service_time)-5400, UTCDateTime(service_time)-1800, pad=True, fill_value=0)
+
+st_aft_ser = st_temp.copy().trim(UTCDateTime(service_time)+1800, UTCDateTime(service_time)+5400, pad=True, fill_value=0)
+
+
+# filter
+st_bef_ser.filter(type="bandpass", freqmin=0.2, freqmax=10)
+st_aft_ser.filter(type="bandpass", freqmin=0.2, freqmax=10)
+
+
+print st_temp
+print st_bef_ser
+print st_aft_ser
+
+# Lets shift the startime of one of the after service traces by 1 second
+print 'Shifting:', st_aft_ser[1]
+print st_aft_ser[1].stats
+st_aft_ser[1].stats.starttime = st_aft_ser[1].stats.starttime+1
+print st_aft_ser[1].stats
+st_aft_ser.trim(UTCDateTime(service_time)+1800, UTCDateTime(service_time)+5400, pad=True, fill_value=0)
+
+print ''
+print 'Performing x-correlations ....'
+cross_correlate_pairs.accp(st_bef_ser, st_aft_ser)
+
+'''
 # Merge the waveforms together, filling any gaps
 st.merge(method=1, fill_value=0)
-st.decimate(2)
+#st.decimate(2)
+st.trim(UTCDateTime(service_time)-1800,UTCDateTime(service_time)+1800)
 
+print st
+
+print ''
+print 'Performing x-correlations ....'
 cross_correlate_pairs.accp(st)
+'''
