@@ -32,54 +32,66 @@ def perform_xcorr(tr_1, tr_2):
 
 
 
-def accp(st_bef, st_aft):
+def accp(st_bef, st_aft, xcond):
 
     comp_list = []
 
-    for tr_1_bef in st_bef:
-        station_1 = tr_1_bef.stats.station
+    if xcond == 'before' or xcond == 'both':
 
-        for tr_2_bef in st_bef:
-            station_2 = tr_2_bef.stats.station
+        for tr_1_bef in st_bef:
+            station_1 = tr_1_bef.stats.station
 
-            if station_1+'bef_'+station_2+'bef' in comp_list or station_2+'bef_'+station_1+'bef' in comp_list:
-                continue
+            for tr_2_bef in st_bef:
+                station_2 = tr_2_bef.stats.station
 
-            comp_list.append(station_1 + 'bef_' + station_2 + 'bef')
+                if station_1+'bef_'+station_2+'bef' in comp_list or station_2+'bef_'+station_1+'bef' in comp_list:
+                    continue
+                # Avoid the autocorrelation
+                if station_1 == station_2:
+                    continue
 
-            print '---------------------------------------'
-            print tr_1_bef.stats.station, 'bef with ', tr_2_bef.stats.station, ' bef'
+                comp_list.append(station_1 + 'bef_' + station_2 + 'bef')
 
-            perform_xcorr(tr_1_bef, tr_2_bef)
+                print '---------------------------------------'
+                print tr_1_bef.stats.station, 'bef with ', tr_2_bef.stats.station, ' bef'
 
-        for tr_2_aft in st_aft:
-            station_2 = tr_2_aft.stats.station
+                perform_xcorr(tr_1_bef, tr_2_bef)
 
-            if station_1+'bef_'+station_2+'aft' in comp_list or station_2+'aft_'+station_1+'bef' in comp_list:
-                continue
+            if xcond == 'both':
 
-            comp_list.append(station_1 + 'bef_' + station_2 + 'aft')
+                for tr_2_aft in st_aft:
+                    station_2 = tr_2_aft.stats.station
 
-            print '---------------------------------------'
-            print tr_1_bef.stats.station, 'bef with ', tr_2_aft.stats.station, ' aft'
+                    if station_1+'bef_'+station_2+'aft' in comp_list or station_2+'aft_'+station_1+'bef' in comp_list:
+                        continue
 
-            perform_xcorr(tr_1_bef, tr_2_aft)
+                    comp_list.append(station_1 + 'bef_' + station_2 + 'aft')
 
-    for tr_1_aft in st_aft:
-        station_1 = tr_1_aft.stats.station
+                    print '---------------------------------------'
+                    print tr_1_bef.stats.station, 'bef with ', tr_2_aft.stats.station, ' aft'
 
-        for tr_2_aft in st_aft:
-            station_2 = tr_2_aft.stats.station
+                    perform_xcorr(tr_1_bef, tr_2_aft)
 
-            if station_1+'aft_'+station_2+'aft' in comp_list or station_2+'aft_'+station_1+'aft' in comp_list:
-                continue
+    if xcond == 'after' or xcond == 'both':
 
-            comp_list.append(station_1 + 'aft_' + station_2 + 'aft')
+        for tr_1_aft in st_aft:
+            station_1 = tr_1_aft.stats.station
 
-            print '---------------------------------------'
-            print tr_1_aft.stats.station, 'aft with ', tr_2_aft.stats.station, ' aft'
+            for tr_2_aft in st_aft:
+                station_2 = tr_2_aft.stats.station
 
-            perform_xcorr(tr_1_aft, tr_2_aft)
+                if station_1+'aft_'+station_2+'aft' in comp_list or station_2+'aft_'+station_1+'aft' in comp_list:
+                    continue
+                # Avoid the autocorrelation
+                if station_1 == station_2:
+                    continue
+
+                comp_list.append(station_1 + 'aft_' + station_2 + 'aft')
+
+                print '---------------------------------------'
+                print tr_1_aft.stats.station, 'aft with ', tr_2_aft.stats.station, ' aft'
+
+                perform_xcorr(tr_1_aft, tr_2_aft)
 
 
     print comp_list
