@@ -91,7 +91,7 @@ for _i, station_name in enumerate(sta_list):
     temp_data_int = []
 
     for matched_waveform in session.query(Waveforms). \
-            filter(Waveforms.station_id.like('%BHZ%')):
+            filter(Waveforms.full_id.like('%BHZ%raw_recording%')):
 
         temp_data_int.append((matched_waveform.starttime, matched_waveform.endtime, matched_waveform.full_id))
 
