@@ -14,20 +14,17 @@ def toggle_selector(event):
     if event.key in ['enter']:
         toggle_selector.RS.set_active(False)
 
-        final_bot_left.append(bot_left)
-        final_top_right.append(top_right)
+        global final_bot_left
+        global final_top_right
+
+        final_bot_left = bot_left
+        final_top_right = top_right
 
         toggle_selector.RS.set_active(True)
 
 
 
-def vis_int(di, ser, oth_ser):
-    global final_bot_left
-    global final_top_right
-    final_bot_left = []
-    final_top_right = []
-
-
+def vis_int(di, oth_ser, q_times):
     fig = plt.figure(figsize=(16, 10))
 
     ax = fig.add_subplot(111)
@@ -35,7 +32,8 @@ def vis_int(di, ser, oth_ser):
     for ot in oth_ser:
         ax.axvline(x=ot, color='k')
 
-    ax.axvline(x=ser)
+    for quake in q_times:
+        ax.axvline(x=quake, color='r')
 
     station_lables = di.keys()
     station_lables.insert(0,u'')

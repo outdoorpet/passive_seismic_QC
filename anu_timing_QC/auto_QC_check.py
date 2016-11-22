@@ -4,6 +4,8 @@ from os.path import join, exists
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import or_, and_
+
 from sqlalchemy import Column, Integer, String
 from obspy.core import Stream, UTCDateTime
 
@@ -17,20 +19,19 @@ import matplotlib.pyplot as plt
 data_path = '/media/obsuser/seismic_data_1/'
 
 #IRIS Virtual Ntework name
-virt_net = '_GA_test'
+virt_net = '_GA_ANUtest'
 
 # FDSN network identifier (2 Characters)
 FDSNnetwork = 'XX'
 
-# Service Interval time to check UTC
-service_time = '2016-10-11T02:09:00'
-
-other_service_times = ['2016-09-28T03:30:00', '2016-10-11T02:09:00', '2016-10-12T04:11:00', '2016-10-13T01:30:00', '2016-10-18T03:20:00']
+other_service_times = ['2016-09-28T03:30:00', '2016-10-11T02:09:00', '2016-10-12T04:11:00',
+                       '2016-10-13T01:30:00', '2016-10-18T03:20:00', '2016-10-20T03:30:00',
+                       '2016-10-24T02:35:00', '2016-11-02T04:43:00', '2016-11-08T03:30:00',
+                       '2016-11-16T03:30:00']
 
 # Component to analyse
 comp = 'BHZ'
 
-xcond = 'both'
 
 # =========================================================================== #
 
@@ -56,16 +57,27 @@ ds = pyasdf.ASDFDataSet(ASDF_in)
 # Get list of stations in ASDF file
 sta_list = ds.waveforms.list()
 
-# Convert the service time into a UTCDateTime object and then convert to timestamp
-service_timestamp = UTCDateTime(service_time).timestamp
-
 other_service_timestamps = []
 for oth_time in other_service_times:
     other_service_timestamps.append(UTCDateTime(oth_time).timestamp)
 
-# open up new obspy stream object for data before service and data after service
-st_bef_ser = Stream()
-st_aft_ser = Stream()
+
+q_times = []
+# Access the event metadata
+event_cat = ds.events
+
+for _j, event in enumerate(event_cat):
+    #print '\r  Extracting {0} of {1} Earthquakes....'.format(_j + 1, event_cat.count()),
+    #sys.stdout.flush()
+    # Get quake origin info
+    origin_info = event.preferred_origin() or event.origins[0]
+    qtime = origin_info.time.timestamp
+    q_times.append(qtime)
+
+
+
+# open up new obspy stream object for data
+st = Stream()
 
 # data intervals
 data_int = {}
@@ -90,16 +102,22 @@ for _i, station_name in enumerate(sta_list):
 
     temp_data_int = []
 
+    # First read in the SQL databse to find out all of the data recording intervals
     for matched_waveform in session.query(Waveforms). \
-            filter(Waveforms.full_id.like('%BHZ%raw_recording%')):
+            filter(Waveforms.full_id.like('%'+comp+'%raw_recording%')):
 
         temp_data_int.append((matched_waveform.starttime, matched_waveform.endtime, matched_waveform.full_id))
 
     data_int[station_name] = temp_data_int
 
-desired_intervals = _interactive_interval.vis_int(data_int, service_timestamp, other_service_timestamps)
+# returns (coords for bottom left of rectangle, coords for top right of rectangle)
+desired_intervals = _interactive_interval.vis_int(data_int, other_service_timestamps, q_times)
 
-print desired_intervals
+print 'Start of selcted interval: ', UTCDateTime(desired_intervals[0][0])
+print 'End of selcted interval:   ', UTCDateTime(desired_intervals[1][0])
+
+desired_intervals = ([UTCDateTime('2016-11-13T11:07:00Z').timestamp],[UTCDateTime('2016-11-13T11:09:00Z').timestamp])
+
 
 # Now extracting data from the pyasdf file
 # go through data interval dictionary
@@ -107,65 +125,42 @@ for di_key in data_int.keys():
 
     print 'Working on Station: {0}'.format(di_key)
 
-    bef_int = []
-    aft_int = []
+    int = []
 
-    #now go through the data_int elements
+    # now go through the data_int elements
     for interval in data_int[di_key]:
         # check if the before service desired interval is within the data interval
-        if interval[0] <= desired_intervals[0][0][0] <= interval[1] or interval[0] <= desired_intervals[1][0][0] <= interval[1]:
-            bef_int.append(interval)
-            # check if the before service desired interval is within the data interval
-        if interval[0] <= desired_intervals[0][1][0] <= interval[1] or interval[0] <= desired_intervals[1][1][0] <= interval[1]:
-            aft_int.append(interval)
+        if (interval[0] >= desired_intervals[0][0] and desired_intervals[1][0] >= interval[1]) or interval[0] <= desired_intervals[1][0] <= \
+                interval[1] or interval[0] <= desired_intervals[0][0] <= interval[1]:
+            int.append(interval)
+
+    print int
 
     sta_helper = ds.waveforms[di_key]
 
-    #read in all streams in the interval lists
-    #iterate through intervals in before serv:
-    for bi in bef_int:
+    # read in all streams in the interval lists
+    # iterate through intervals in before serv:
+    for bi in int:
         matched_st = sta_helper[bi[2]]
-        st_bef_ser += matched_st
-    for ai in aft_int:
-        matched_st = sta_helper[ai[2]]
-        st_aft_ser += matched_st
+        #matched_st.filter(type="bandpass", freqmin=0.01, freqmax=2)
+        st += matched_st
+
 
 
 
 UTCDateTime.DEFAULT_PRECISION = 6
 
+st.plot()
 
-# making the span intervals the same size
-span_1 = UTCDateTime(desired_intervals[1][0][0]) - UTCDateTime(desired_intervals[0][0][0])
-span_2 = UTCDateTime(desired_intervals[1][1][0]) - UTCDateTime(desired_intervals[0][1][0])
+st.merge()
 
-diff_1 = int(span_1-span_2)
-diff_2 = int(span_2-span_1)
+st.plot()
 
-if diff_2 < 0:
-    diff_2 = 0
-if diff_1 < 0:
-    diff_1 = 0
+st.trim(starttime=UTCDateTime(desired_intervals[0][0]), endtime=UTCDateTime(desired_intervals[1][0]), pad=True, fill_value=0)
+#st.decimate(4)
 
-print "New Spans:"
-print UTCDateTime(desired_intervals[0][0][0]), ' ---> ', UTCDateTime(desired_intervals[1][0][0])-diff_1
-print UTCDateTime(desired_intervals[0][1][0]), ' ---> ', UTCDateTime(desired_intervals[1][1][0])-diff_2
-
-st_bef_ser.merge()
-st_aft_ser.merge()
-
-st_bef_ser.trim(UTCDateTime(desired_intervals[0][0][0]), UTCDateTime(desired_intervals[1][0][0])-diff_1, pad=True, fill_value=0)#, nearest_sample=False)
-st_aft_ser.trim(UTCDateTime(desired_intervals[0][1][0]), UTCDateTime(desired_intervals[1][1][0])-diff_2, pad=True, fill_value=0)#, nearest_sample=False)
-
-# filter
-#st_bef_ser.filter(type="bandpass", freqmin=0.2, freqmax=10)
-#st_aft_ser.filter(type="bandpass", freqmin=0.2, freqmax=10)
-
-print st_bef_ser
-print st_aft_ser
+st.plot()
 
 print ''
 print 'Performing x-correlations ....'
-cross_correlate_pairs.accp(st_bef_ser, st_aft_ser, xcond)
-
-
+cross_correlate_pairs.accp(st)

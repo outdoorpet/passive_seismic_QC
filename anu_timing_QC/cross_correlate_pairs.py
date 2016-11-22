@@ -3,95 +3,57 @@ from obspy.signal.cross_correlation import xcorr
 import matplotlib.pyplot as plt
 import numpy as np
 
-def perform_xcorr(tr_1, tr_2):
-
-    samp_shift = 200
-
+def perform_xcorr(tr_1, tr_2, samp_shift):
     a, b, xcorr_func = xcorr(tr_1, tr_2, samp_shift, full_xcorr=True)
+    return (a,b,xcorr_func)
+
+
+
+
+def accp(st):
+    samp_shift = 200
     X = np.linspace(-1 * samp_shift, samp_shift, samp_shift * 2 + 1)
 
-    print 'Index of max correlation value = ', a
-    print 'Value of max correlation value = ', b
+    comp_list = []
+    a_list = []
+    b_list = []
+    xcorr_list = []
+    for tr_1 in st:
+        station_1 = tr_1.stats.station
 
-    plt.close()
+        for tr_2 in st:
+                station_2 = tr_2.stats.station
 
-    ax1 = plt.subplot(3, 1, 1)
-    ax2 = plt.subplot(3, 1, 2)
-    ax3 = plt.subplot(3, 1, 3)
+                if station_1+station_2 in comp_list or station_2+station_1 in comp_list:
+                    continue
 
-    ax1.plot(tr_1.data)
-    ax2.plot(tr_2.data)
+                # Avoid the autocorrelation
+                if station_1 == station_2:
+                    continue
 
-    ax3.plot(X, xcorr_func)
+                comp_list.append(station_1 + station_2)
+
+                print '---------------------------------------'
+                print tr_1.stats.station, ' with ', tr_2.stats.station
+
+                a, b, xcorr_func = xcorr(tr_1, tr_2, samp_shift, full_xcorr=True)
+
+                print 'Index of max correlation value = ', a
+                print 'Value of max correlation value = ', b
+
+                a_list.append(a)
+                b_list.append(b)
+                xcorr_list.append(xcorr_func)
+
+    ax1 = plt.subplot(1, 1, 1)
 
     plt.ylabel('Correlation')
     plt.xlabel('Lag')
+    ax1.grid()
 
+    for i, comp_xcorr in enumerate(comp_list):
+
+        ax1.plot(X, (xcorr_list[i]), label=comp_xcorr, lw=1.2)
+
+    plt.legend()
     plt.show()
-
-
-
-
-def accp(st_bef, st_aft, xcond):
-
-    comp_list = []
-
-    if xcond == 'before' or xcond == 'both':
-
-        for tr_1_bef in st_bef:
-            station_1 = tr_1_bef.stats.station
-
-            for tr_2_bef in st_bef:
-                station_2 = tr_2_bef.stats.station
-
-                if station_1+'bef_'+station_2+'bef' in comp_list or station_2+'bef_'+station_1+'bef' in comp_list:
-                    continue
-                # Avoid the autocorrelation
-                if station_1 == station_2:
-                    continue
-
-                comp_list.append(station_1 + 'bef_' + station_2 + 'bef')
-
-                print '---------------------------------------'
-                print tr_1_bef.stats.station, 'bef with ', tr_2_bef.stats.station, ' bef'
-
-                perform_xcorr(tr_1_bef, tr_2_bef)
-
-            if xcond == 'both':
-
-                for tr_2_aft in st_aft:
-                    station_2 = tr_2_aft.stats.station
-
-                    if station_1+'bef_'+station_2+'aft' in comp_list or station_2+'aft_'+station_1+'bef' in comp_list:
-                        continue
-
-                    comp_list.append(station_1 + 'bef_' + station_2 + 'aft')
-
-                    print '---------------------------------------'
-                    print tr_1_bef.stats.station, 'bef with ', tr_2_aft.stats.station, ' aft'
-
-                    perform_xcorr(tr_1_bef, tr_2_aft)
-
-    if xcond == 'after' or xcond == 'both':
-
-        for tr_1_aft in st_aft:
-            station_1 = tr_1_aft.stats.station
-
-            for tr_2_aft in st_aft:
-                station_2 = tr_2_aft.stats.station
-
-                if station_1+'aft_'+station_2+'aft' in comp_list or station_2+'aft_'+station_1+'aft' in comp_list:
-                    continue
-                # Avoid the autocorrelation
-                if station_1 == station_2:
-                    continue
-
-                comp_list.append(station_1 + 'aft_' + station_2 + 'aft')
-
-                print '---------------------------------------'
-                print tr_1_aft.stats.station, 'aft with ', tr_2_aft.stats.station, ' aft'
-
-                perform_xcorr(tr_1_aft, tr_2_aft)
-
-
-    print comp_list
