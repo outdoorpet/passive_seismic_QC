@@ -4,14 +4,11 @@ from os.path import join, exists
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import or_, and_
-
 from sqlalchemy import Column, Integer, String
 from obspy.core import Stream, UTCDateTime
 
 from anu_timing_QC import cross_correlate_pairs
 from anu_timing_QC import _interactive_interval
-import matplotlib.pyplot as plt
 
 # =========================== User Input Required =========================== #
 
