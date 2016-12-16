@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 # =========================== User Input Required =========================== #
 
 #Path to the data
-data_path = '/media/obsuser/seismic_data_1/'
+data_path = '/g/data/ha3/Seismic/'
 
 #IRIS Virtual Ntework name
 virt_net = '_GA_ANUtest'
@@ -30,7 +30,7 @@ other_service_times = ['2016-09-28T03:30:00', '2016-10-11T02:09:00', '2016-10-12
                        '2016-11-16T03:30:00']
 
 # Component to analyse
-comp = 'BHZ'
+comp = 'EHZ'
 
 
 # =========================================================================== #
@@ -86,7 +86,7 @@ data_int = {}
 for _i, station_name in enumerate(sta_list):
 
     # SQL file for station
-    SQL_in = join(data_path, virt_net, FDSNnetwork, 'ASDF', station_name.split('.')[1] + '.db')
+    SQL_in = r"" + join(data_path, virt_net, FDSNnetwork, 'ASDF', station_name.split('.')[1] + '.db')
 
     # if the SQL database doesn't exist for the station,
     # then there is no waveforms in the ASDF file for that station
@@ -95,14 +95,14 @@ for _i, station_name in enumerate(sta_list):
         continue
 
     # Initialize the sqlalchemy sqlite engine
-    engine = create_engine('sqlite:////' + SQL_in)
+    engine = create_engine('sqlite:///' + SQL_in)
 
     Session = sessionmaker(bind=engine)
     session = Session()
 
     temp_data_int = []
 
-    # First read in the SQL databse to find out all of the data recording intervals
+    # First read in the SQL database to find out all of the data recording intervals
     for matched_waveform in session.query(Waveforms). \
             filter(Waveforms.full_id.like('%'+comp+'%raw_recording%')):
 
@@ -116,8 +116,7 @@ desired_intervals = _interactive_interval.vis_int(data_int, other_service_timest
 print 'Start of selcted interval: ', UTCDateTime(desired_intervals[0][0])
 print 'End of selcted interval:   ', UTCDateTime(desired_intervals[1][0])
 
-desired_intervals = ([UTCDateTime('2016-11-13T11:07:00Z').timestamp],[UTCDateTime('2016-11-13T11:09:00Z').timestamp])
-
+# desired_intervals = ([UTCDateTime('2016-11-13T11:07:00Z').timestamp],[UTCDateTime('2016-11-13T11:09:00Z').timestamp])
 
 # Now extracting data from the pyasdf file
 # go through data interval dictionary
@@ -133,8 +132,6 @@ for di_key in data_int.keys():
         if (interval[0] >= desired_intervals[0][0] and desired_intervals[1][0] >= interval[1]) or interval[0] <= desired_intervals[1][0] <= \
                 interval[1] or interval[0] <= desired_intervals[0][0] <= interval[1]:
             int.append(interval)
-
-    print int
 
     sta_helper = ds.waveforms[di_key]
 

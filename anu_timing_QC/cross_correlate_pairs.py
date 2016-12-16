@@ -33,7 +33,7 @@ def accp(st):
 
                 comp_list.append(station_1 + station_2)
 
-                print '---------------------------------------'
+                print '--------------------------------------------------------'
                 print tr_1.stats.station, ' with ', tr_2.stats.station
 
                 a, b, xcorr_func = xcorr(tr_1, tr_2, samp_shift, full_xcorr=True)
