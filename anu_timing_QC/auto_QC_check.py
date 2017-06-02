@@ -13,13 +13,13 @@ from anu_timing_QC import _interactive_interval
 # =========================== User Input Required =========================== #
 
 #Path to the data
-data_path = '/g/data/ha3/Seismic/'
+data_path = '/g/data/ha3/Passive/'
 
 #IRIS Virtual Ntework name
-virt_net = '_GA_ANUtest'
+virt_net = '_ANU'
 
 # FDSN network identifier (2 Characters)
-FDSNnetwork = 'XX'
+FDSNnetwork = '7G(2013-2015)'
 
 other_service_times = ['2016-09-28T03:30:00', '2016-10-11T02:09:00', '2016-10-12T04:11:00',
                        '2016-10-13T01:30:00', '2016-10-18T03:20:00', '2016-10-20T03:30:00',
@@ -47,6 +47,8 @@ class Waveforms(Base):
 
 # ASDF file (High Performance Dataset) one file per network
 ASDF_in = join(data_path, virt_net, FDSNnetwork, 'ASDF', FDSNnetwork + '.h5')
+
+print("Reading ASDF file.....")
 
 # Open the ASDF file
 ds = pyasdf.ASDFDataSet(ASDF_in)
@@ -79,8 +81,12 @@ st = Stream()
 # data intervals
 data_int = {}
 
+print("Opening SQL database and examining data recording intervals...")
+
 # Iterate through stations in the ASDF file
 for _i, station_name in enumerate(sta_list):
+
+    print("Working on: " + str(station_name))
 
     # SQL file for station
     SQL_in = r"" + join(data_path, virt_net, FDSNnetwork, 'ASDF', station_name.split('.')[1] + '.db')
@@ -107,6 +113,8 @@ for _i, station_name in enumerate(sta_list):
 
     data_int[station_name] = temp_data_int
 
+print("Plotting data recording intervals (this may take a while..)")
+# Run module to allow selection of desired xcor intervals graphically
 # returns (coords for bottom left of rectangle, coords for top right of rectangle)
 desired_intervals = _interactive_interval.vis_int(data_int, other_service_timestamps, q_times)
 
@@ -148,7 +156,7 @@ st.plot()
 
 st.merge()
 
-st.plot()
+# st.plot()
 
 st.trim(starttime=UTCDateTime(desired_intervals[0][0]), endtime=UTCDateTime(desired_intervals[1][0]), pad=True, fill_value=0)
 #st.decimate(4)
